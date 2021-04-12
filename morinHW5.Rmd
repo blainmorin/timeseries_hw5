@@ -1,0 +1,95 @@
+---
+title: "STAT 6550 HW5"
+author: "Blain Morin"
+date: "4/12/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(tidyquant)
+
+
+```
+
+In this question, you will analyze a time series of the monthly U.S. production of crude oil (measured in thousands of barrels) from Jan 1980 until Dec 2009. (Source: Energy Information Administration, Dept. of Energy). Our key interest is to understand how oil production has changed over the period of study, by building a time series model that can capture trend, seasonality, and noise. Use R for this question (All the R code you will need can be found on the class website in one place or another).
+
+## Produce a time series plot of the data, and then describe the features of the U.S. oil production series.
+
+```{r}
+
+oil = scan("US_oil_production.txt")
+years = seq(from=1980, by=1/12, length=length(oil))
+df = data.frame(years = years, oil = oil)
+
+```
+
+```{r}
+
+df %>%
+  ggplot(aes(x = years, y = oil)) +
+  geom_line() +
+  xlab("Years") +
+  ylab("Oil (Thousands of Barrels)") +
+  ggtitle("Oil Production over Time") +
+  scale_x_continuous(breaks = seq(1980, 2010, by = 5)) +
+  theme_bw()
+
+```
+
+
+* There appears to be some dependence or correlation between the points because points that are close to each other or more similar than points that are distant.
+
+* There seems to be a downward trend.
+
+* There appears to be some visual evidence of seasonality, we can see a yearly pattern.
+
+* The variance is mostly constant except for years after 2005.
+
+## Estimate the trend using a moving average of the data calculated over 5 year windows (60 time points). Make sure that you produce estimates of the trend at the start and end of the series. Produce a plot of the estimated trend, superimposed over the original data, and describe it in words.
+
+```{r, echo = TRUE}
+
+## set the value of q.
+value.of.q = 60
+
+## set the filter length
+filter.len = value.of.q + 1
+
+## MAke filter coefs
+MA.filter = rep(1/filter.len, filter.len)
+
+## 'n' is the length of time series
+n = length(oil)
+
+## Extend oil so we can get a full range of estimates
+longer.oil = c(oil[(value.of.q/2):1],
+               oil,
+               oil[n:(n-value.of.q/2+1)])
+
+MA.oil = stats::filter(longer.oil, MA.filter)[(value.of.q/2+1):(value.of.q/2+n)]
+
+## add to our dataframe
+df$MA.oil = MA.oil
+
+```
+
+```{r}
+
+df %>%
+  ggplot(aes(x = years, y = oil)) +
+  geom_line() + 
+  geom_line(aes(y = MA.oil), color = "red", size = 1.2, alpha = .7) +
+  xlab("Years") +
+  ylab("Oil (Thousands of Barrels)") +
+  ggtitle("Oil Production over Time (MA(60) In Red") +
+  scale_x_continuous(breaks = seq(1980, 2010, by = 5)) +
+  theme_bw()
+
+```
+
+As the red line shows in the above plot, there is a significant decreasing trend through the years 1985 to about 2006. 
+
+## 
