@@ -10,13 +10,15 @@ output: pdf_document
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 library(tidyverse)
 library(tidyquant)
+library(knitr)
+library(kableExtra)
 
 
 ```
 
 In this question, you will analyze a time series of the monthly U.S. production of crude oil (measured in thousands of barrels) from Jan 1980 until Dec 2009. (Source: Energy Information Administration, Dept. of Energy). Our key interest is to understand how oil production has changed over the period of study, by building a time series model that can capture trend, seasonality, and noise. Use R for this question (All the R code you will need can be found on the class website in one place or another).
 
-## Produce a time series plot of the data, and then describe the features of the U.S. oil production series.
+## (a) Produce a time series plot of the data, and then describe the features of the U.S. oil production series.
 
 ```{r}
 
@@ -48,31 +50,32 @@ df %>%
 
 * The variance is mostly constant except for years after 2005.
 
-## Estimate the trend using a moving average of the data calculated over 5 year windows (60 time points). Make sure that you produce estimates of the trend at the start and end of the series. Produce a plot of the estimated trend, superimposed over the original data, and describe it in words.
+## (b) Estimate the trend using a moving average of the data calculated over 5 year windows (60 time points). Make sure that you produce estimates of the trend at the start and end of the series. Produce a plot of the estimated trend, superimposed over the original data, and describe it in words.
 
-```{r, echo = TRUE}
+```{r}
 
-## set the value of q.
-value.of.q = 60
+### From CDA Notes
 
-## set the filter length
-filter.len = value.of.q + 1
+cda.step1 = function (x, d=60)
+{
+  ## create the filter
+  if (d%%2==1) ## d is odd
+    our.filter <- rep(1,d)/d
+  else ## d is even
+    our.filter <- c(0.5, rep(1,d-1), 0.5)/d
+  
+  n        <- length(x)
+  half.d   <- d/2
+  longer.x <- c(rep(x[1],half.d), x, rep(x[n],half.d))
+  
+  ## return the filtered sequence
+  stats::filter(longer.x, our.filter)[(half.d+1):(n+half.d)]
+}
 
-## MAke filter coefs
-MA.filter = rep(1/filter.len, filter.len)
+### Run function,
+### Add to our df
 
-## 'n' is the length of time series
-n = length(oil)
-
-## Extend oil so we can get a full range of estimates
-longer.oil = c(oil[(value.of.q/2):1],
-               oil,
-               oil[n:(n-value.of.q/2+1)])
-
-MA.oil = stats::filter(longer.oil, MA.filter)[(value.of.q/2+1):(value.of.q/2+n)]
-
-## add to our dataframe
-df$MA.oil = MA.oil
+df$MA.oil = cda.step1(oil, d = 60)
 
 ```
 
@@ -92,4 +95,47 @@ df %>%
 
 As the red line shows in the above plot, there is a significant decreasing trend through the years 1985 to about 2006. 
 
-## 
+## (c) (c) Follow the second step of the classical decomposition algorithm to produce an estimate of the seasonal component (assuming d = 12). Present the estimates in a table (rounded to the nearest 1000 barrels), and produce a graph of these estimates. NOTE: These estimates look unusual! Since there are a different number of days in each month, production will be higher in those months with more days.
+
+
+```{r}
+
+df$Month = rep(month.name, length(oil)/12)
+
+df = df %>%
+  mutate(detrended = oil - MA.oil)
+
+table.c = df %>%
+  group_by(Month) %>%
+  summarise("Average Barrels (1000s)" = round(mean(detrended), -3)) %>%
+  arrange(match(Month, month.name))
+
+kbl(table.c, caption = "Monthly Average Oil Production", booktabs = T) %>%
+kable_styling(latex_options = c("striped", "HOLD_position"))
+
+
+
+```
+
+```{r}
+
+temp = df %>%
+  group_by(Month) %>%
+  summarise(mean = round(mean(detrended), -3)) %>%
+  arrange(match(Month, month.name))
+
+df %>%
+  ggplot(aes(x = years, y = detrended)) +
+  geom_line() + 
+  geom_hline(aes(yintercept = mean), data = temp, color = "red") +
+  facet_wrap(~factor(Month, levels = month.name)) +
+  xlab("Year") +
+  ylab("Detrended Barrels (1000s)") +
+  ggtitle("Estimated Oil Seasonality") +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="black")) +
+  theme(strip.text = element_text(colour = 'white')) 
+  
+
+```
+
