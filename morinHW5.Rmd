@@ -9,10 +9,11 @@ output: pdf_document
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 library(tidyverse)
-library(tidyquant)
+library(forecast)
 library(knitr)
 library(kableExtra)
-
+library(gridExtra)
+library(stargazer)
 
 ```
 
@@ -225,3 +226,125 @@ df %>%
 ```
 
 * We see that the is more oil production on average in the winter months (from November to May). There is less oil production from June to October. 
+
+## Summarize the detrended and deseasonalized per day oil production series using time series plots, the sample ACF, the sample PACF, and a normal Q-Q plot (Show 60 lags for the ACF and PACF plots). Calculate the Ljung-Box statistic also based on 60 lags. Describe these summaries in words, and pick the most appropriate, but simple, ARMA model for the series, providing reasons for the choice of model that you make.
+
+
+```{r}
+
+df = df %>%
+  group_by(Month) %>%
+  mutate(detrend.deseason = detrended - mean(detrended)) %>%
+  ungroup()
+
+```
+
+```{r}
+
+# CDA step 3 from class notes
+
+model = lm(detrend.deseason ~ years + I(years^2), data = df)
+
+df = df %>%
+  mutate(preds = fitted(model)) %>%
+  mutate(resids = resid(model))
+
+a = df %>%
+  ggplot(aes(x = years, y = detrend.deseason)) +
+  geom_line() +
+  geom_line(aes(y = preds), color = "red", size = 1.2, alpha = .8) +
+  ggtitle("Deseasonalized and\nDetrended Series") +
+  ylab("Barrels Per day (1000s)") +
+  xlab("Year") +
+  theme_bw()
+
+b = ggAcf(df$resids, lag.max = 60) +
+  ggtitle("ACF Plot") + 
+  theme_bw() 
+
+c = ggPacf(df$resids, lag.max = 60) +
+  ggtitle("PACF Plot") + 
+  theme_bw() 
+
+d = df %>%
+  ggplot(aes(sample = resids)) +
+  stat_qq() +
+  stat_qq_line() +
+  theme_bw() +
+  ggtitle("QQ Plot")
+
+grid.arrange(a, b, c, d, nrow = 2,
+             top = "Detrended and Deseasonalized Summary Plots")
+
+```
+
+```{r, echo = TRUE}
+
+Box.test(df$resids, lag = 60, type = "Ljung-Box")
+
+```
+
+## Fit your ARMA model using the arima function. Write down the estimated model, and produce 95% confidence intervals for the model parameters. Interpret your confidence intervals.
+
+```{r, echo = TRUE}
+
+arima16 = arima(df$detrend.deseason,
+                order = c(1, 0, 6))
+
+
+arima16df = data.frame(Est = coef(arima16), SE = sqrt(diag(vcov(arima16))))
+
+temp2 = row.names(arima16df)
+
+arima16df = arima16df %>%
+  mutate(Lower = Est - 1.96 * SE) %>%
+  mutate(Upper = Est + 1.96 * SE)
+
+arima16df = round(arima16df, 3) %>%
+  mutate(Contains0 = ifelse(0>= Lower & 0 <= Upper, "Yes", "No"))
+
+rownames(arima16df) = temp2
+
+kbl(arima16df, booktabs = T, linesep = "", caption = "ARMA (1,6) Coefficients Summary") %>%
+kable_styling(latex_options = c("striped", "HOLD_position"))
+
+```
+
+```{r}
+
+df$resid.16 = resid(arima16)
+
+a = df %>%
+  ggplot(aes(x = years, y = resid.16)) + 
+  geom_line() +
+  ylab("ARMA(1,6) Residual") +
+  xlab("Year") +
+  ggtitle("Residual Plot") +
+  theme_bw()
+
+b = ggAcf(df$resid.16, lag.max = 60) +
+  ggtitle("ARMA(1,6) ACF Plot") +
+  theme_bw()
+
+c = ggPacf(df$resid.16, lag.max = 60) +
+  ggtitle("ARMA(1,6) PACF Plot") +
+  theme_bw()
+
+d = df %>%
+  ggplot(aes(sample = resid.16)) +
+  stat_qq() +
+  stat_qq_line() +
+  theme_bw() +
+  ggtitle("QQ Plot")
+
+grid.arrange(a, b, c, d, nrow = 2,
+             top = "ARMA (1,6) Diagnostics")
+```
+
+```{r}
+
+Box.test(df$resid.16, lag = 60, type = "Ljung-Box")
+
+```
+
+
