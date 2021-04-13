@@ -87,7 +87,7 @@ df %>%
   geom_line(aes(y = MA.oil), color = "red", size = 1.2, alpha = .7) +
   xlab("Years") +
   ylab("Oil (Thousands of Barrels)") +
-  ggtitle("Oil Production over Time (MA(60) In Red") +
+  ggtitle("Oil Production over Time (MA(60) In Red)") +
   scale_x_continuous(breaks = seq(1980, 2010, by = 5)) +
   theme_bw()
 
@@ -95,7 +95,7 @@ df %>%
 
 As the red line shows in the above plot, there is a significant decreasing trend through the years 1985 to about 2006. 
 
-## (c) (c) Follow the second step of the classical decomposition algorithm to produce an estimate of the seasonal component (assuming d = 12). Present the estimates in a table (rounded to the nearest 1000 barrels), and produce a graph of these estimates. NOTE: These estimates look unusual! Since there are a different number of days in each month, production will be higher in those months with more days.
+## (c) Follow the second step of the classical decomposition algorithm to produce an estimate of the seasonal component (assuming d = 12). Present the estimates in a table (rounded to the nearest 1000 barrels), and produce a graph of these estimates. NOTE: These estimates look unusual! Since there are a different number of days in each month, production will be higher in those months with more days.
 
 
 ```{r}
@@ -112,8 +112,6 @@ table.c = df %>%
 
 kbl(table.c, caption = "Monthly Average Oil Production", booktabs = T) %>%
 kable_styling(latex_options = c("striped", "HOLD_position"))
-
-
 
 ```
 
@@ -139,3 +137,91 @@ df %>%
 
 ```
 
+## (d) Now calculate the number of 1000 barrels per day. Redo steps (b) and (c) for these per day oil production numbers, showing that the trend is basically the same shape (suitably scaled), but that the pattern of the estimated seasonality is different. Describe the seasonality in words.
+
+```{r}
+
+days.per.month = c(31,28.25,31,30,31,30,31,31,30,31,30,31)
+per.day = oil / days.per.month
+
+df$oil = per.day
+
+### From CDA Notes
+
+cda.step1 = function (x, d=60)
+{
+  ## create the filter
+  if (d%%2==1) ## d is odd
+    our.filter <- rep(1,d)/d
+  else ## d is even
+    our.filter <- c(0.5, rep(1,d-1), 0.5)/d
+  
+  n        <- length(x)
+  half.d   <- d/2
+  longer.x <- c(rep(x[1],half.d), x, rep(x[n],half.d))
+  
+  ## return the filtered sequence
+  stats::filter(longer.x, our.filter)[(half.d+1):(n+half.d)]
+}
+
+### Run function,
+### Add to our df
+
+df$MA.oil = cda.step1(per.day, d = 60)
+
+```
+
+```{r}
+
+df %>%
+  ggplot(aes(x = years, y = oil)) +
+  geom_line() + 
+  geom_line(aes(y = MA.oil), color = "red", size = 1.2, alpha = .7) +
+  xlab("Years") +
+  ylab("Per Day Oil (Thousands of Barrels)") +
+  ggtitle("Per Day Oil Production over Time (MA(60) In Red)") +
+  scale_x_continuous(breaks = seq(1980, 2010, by = 5)) +
+  theme_bw()
+
+```
+
+```{r}
+
+df$Month = rep(month.name, length(oil)/12)
+
+df = df %>%
+  mutate(detrended = oil - MA.oil)
+
+table.c = df %>%
+  group_by(Month) %>%
+  summarise("Average Barrels (1000s)" = round(mean(detrended))) %>%
+  arrange(match(Month, month.name))
+
+kbl(table.c, caption = "Monthly Average Oil Production", booktabs = T) %>%
+kable_styling(latex_options = c("striped", "HOLD_position"))
+
+```
+
+```{r}
+
+temp = df %>%
+  group_by(Month) %>%
+  summarise(mean = mean(detrended)) %>%
+  arrange(match(Month, month.name))
+
+df %>%
+  ggplot(aes(x = years, y = detrended)) +
+  geom_line() + 
+  geom_hline(aes(yintercept = mean), data = temp, color = "red") +
+  facet_wrap(~factor(Month, levels = month.name)) +
+  xlab("Year") +
+  ylab("Detrended Barrels (1000s)") +
+  ggtitle("Estimated Oil Seasonality") +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="black")) +
+  theme(strip.text = element_text(colour = 'white')) 
+  
+
+```
+
+* We see that the is more oil production on average in the winter months (from November to May). There is less oil production from June to October. 
