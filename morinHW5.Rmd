@@ -53,7 +53,7 @@ df %>%
 
 ## (b) Estimate the trend using a moving average of the data calculated over 5 year windows (60 time points). Make sure that you produce estimates of the trend at the start and end of the series. Produce a plot of the estimated trend, superimposed over the original data, and describe it in words.
 
-```{r}
+```{r, echo = TRUE}
 
 ### From CDA Notes
 
@@ -140,7 +140,7 @@ df %>%
 
 ## (d) Now calculate the number of 1000 barrels per day. Redo steps (b) and (c) for these per day oil production numbers, showing that the trend is basically the same shape (suitably scaled), but that the pattern of the estimated seasonality is different. Describe the seasonality in words.
 
-```{r}
+```{r, echo = TRUE}
 
 days.per.month = c(31,28.25,31,30,31,30,31,31,30,31,30,31)
 per.day = oil / days.per.month
@@ -225,9 +225,11 @@ df %>%
 
 ```
 
+* We see a similar trend in the time series plot as we saw in part (b).
+
 * We see that the is more oil production on average in the winter months (from November to May). There is less oil production from June to October. 
 
-## Summarize the detrended and deseasonalized per day oil production series using time series plots, the sample ACF, the sample PACF, and a normal Q-Q plot (Show 60 lags for the ACF and PACF plots). Calculate the Ljung-Box statistic also based on 60 lags. Describe these summaries in words, and pick the most appropriate, but simple, ARMA model for the series, providing reasons for the choice of model that you make.
+## (e) Summarize the detrended and deseasonalized per day oil production series using time series plots, the sample ACF, the sample PACF, and a normal Q-Q plot (Show 60 lags for the ACF and PACF plots). Calculate the Ljung-Box statistic also based on 60 lags. Describe these summaries in words, and pick the most appropriate, but simple, ARMA model for the series, providing reasons for the choice of model that you make.
 
 
 ```{r}
@@ -283,6 +285,17 @@ grid.arrange(a, b, c, d, nrow = 2,
 Box.test(df$resids, lag = 60, type = "Ljung-Box")
 
 ```
+
+* We see that the detrended and deseasonalized plot looks relatively stationary with mean zero. The variance is constant up until about year 2005, where it seems to increase.
+
+* The ACF plot shows a slow linear decay that crosses the interval at lag 6. This observation motivates an MA(6) choice for the ARMA model.
+
+* The PACF plot shows rapid exponential decay. Although the thrid lag is outside of the bound, it is very close to them. To simplify the model I choose only to use an AR(1) for the ARMA model.
+
+* The QQ plot reveals that there is some deviation in the normaility of the residuals at the lower end of the values. This warrants further analysis (should try some transformations).
+
+* The results of the Ljung-Box test are highly significant, indicating that there is strong evidence that the data are not independently distributed.
+
 
 ## Fit your ARMA model using the arima function. Write down the estimated model, and produce 95% confidence intervals for the model parameters. Interpret your confidence intervals.
 
