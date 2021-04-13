@@ -29,7 +29,7 @@ df = data.frame(years = years, oil = oil)
 
 ```
 
-```{r}
+```{r, fig.height=4}
 
 df %>%
   ggplot(aes(x = years, y = oil)) +
@@ -241,7 +241,7 @@ df = df %>%
 
 ```
 
-```{r}
+```{r, fig.height=4}
 
 # CDA step 3 from class notes
 
@@ -255,7 +255,7 @@ a = df %>%
   ggplot(aes(x = years, y = detrend.deseason)) +
   geom_line() +
   geom_line(aes(y = preds), color = "red", size = 1.2, alpha = .8) +
-  ggtitle("Deseasonalized and\nDetrended Series") +
+  ggtitle("Residual Plot") +
   ylab("Barrels Per day (1000s)") +
   xlab("Year") +
   theme_bw()
@@ -297,13 +297,20 @@ Box.test(df$resids, lag = 60, type = "Ljung-Box")
 * The results of the Ljung-Box test are highly significant, indicating that there is strong evidence that the data are not independently distributed.
 
 
-## Fit your ARMA model using the arima function. Write down the estimated model, and produce 95% confidence intervals for the model parameters. Interpret your confidence intervals.
+## (f) Fit your ARMA model using the arima function. Write down the estimated model, and produce 95% confidence intervals for the model parameters. Interpret your confidence intervals.
+
+Here is the code used to run the ARMA(1,6) model: 
 
 ```{r, echo = TRUE}
 
 arima16 = arima(df$detrend.deseason,
                 order = c(1, 0, 6))
 
+```
+
+Here are the model estimates along with the lower and upper 95\% confidence interval bounds:
+
+```{r}
 
 arima16df = data.frame(Est = coef(arima16), SE = sqrt(diag(vcov(arima16))))
 
@@ -322,6 +329,10 @@ kbl(arima16df, booktabs = T, linesep = "", caption = "ARMA (1,6) Coefficients Su
 kable_styling(latex_options = c("striped", "HOLD_position"))
 
 ```
+
+* We see that the only significant term (i.e., 0 is not contained in the 95% interval) is the AR(1) piece. We could likely remove some of the higher order MA terms.
+
+## (g) For your time series model, produce summaries of the time series residuals. Diagnose the fit of your model using these summaries.
 
 ```{r}
 
@@ -360,4 +371,19 @@ Box.test(df$resid.16, lag = 60, type = "Ljung-Box")
 
 ```
 
+* From the residual plot we observe that the residuals are mean 0. The variance is relatively constant until it increases after 2005.
 
+* There are a couple of significant lags seen in the ACF and PACF plot. However, it is quite an improvement from the previous section.
+
+* The Ljung-Box test is not significant, indicating that there is not enough evidence to reject the hypothesis that the residuals are independent. 
+
+* The QQ plot of the residuals still has some issues with some of the lower values.
+
+Overall, we have successfully accounted for the correlation between time points (enough to make the residuals independent). The model could use further refinement. For example, we should investigate the high residual values in the later year (2005 through 2010). These outlier values are likely a culprit in some of the strange behavior seen in the ACF, PACF, and QQ plots. 
+
+\newpage
+
+## R Code
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
